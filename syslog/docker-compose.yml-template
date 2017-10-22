@@ -1,0 +1,22 @@
+version: '2'
+services:
+  syslog:
+    image: jarokelo/docker-rsyslog
+    restart: unless-stopped
+    container_name: syslog
+    hostname: syslog
+    volumes:
+      - ${GLOBAL_DIR_LOGS}:/var/log
+      - ${GLOBAL_DIR_SERV}/syslog/service/rsyslog.conf:/etc/rsyslog.conf
+    #pids_limit: 20
+    #cpu_shares: 1023
+    mem_limit: 100m
+    #shm_size: 32m
+    #stdin_open: true
+    #tty: true
+    #networks:
+    #  - default
+#networks:
+#  default:
+
+

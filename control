@@ -1,0 +1,102 @@
+#!/bin/bash
+
+d-compose()
+{
+  if [ -x /opt/dc/bin/dc ] ; then
+    /opt/dc/bin/dc compose $*
+  else 
+    docker-compose $*
+  fi
+}
+
+if [ ! -e ./groupware.env ] ; then  cp -v ./groupware.env-template ./groupware.env ; fi
+
+. ./groupware.env
+
+slist="syslog traefik imap sogo"
+
+_down() { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; d-compose down ) ; done }
+
+_help() {
+  echo " usage: `basename $0` install|uninstall|setup|down|up"
+  exit 0
+}
+
+#######################################################################
+if [ "$1" = "" ] ; then _help ; exit 0 ; fi
+#######################################################################
+if [ "$1" = "down" ] ; then _down ; exit 0 ; fi
+#######################################################################
+if [ "$1" = "uninstall" ] ; then
+  _down 
+  rm -Rvf $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
+  sed -i '/127.0.0.1 pfa.local*$/d'  /etc/hosts
+  sed -i '/127.0.0.1 sogo.local*$/d' /etc/hosts
+  exit 0
+fi
+#######################################################################
+if [ "$1" = "install" ] ; then
+  mkdir -p $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
+  list="imap sogo"
+  for i in $list ; do
+    if [ -d ./$i ] ; then
+      ( cd ./$i ; git pull )
+    else
+      git clone https://github.com/unimock/${i}-docker.git ${i}
+    fi
+  done
+  for i in $slist ; do
+    cp -v groupware.env ./$i/.env
+    if [ ! -e $i/docker-compose.yml ] ; then
+      cp -v $i/docker-compose.yml-template $i/docker-compose.yml
+    fi
+    mkdir -p $GLOBAL_DIR_SERV/$i/service
+    if [ "$i" = "sogo" ] ; then
+      cp -v groupware.env ./testconfig/sogo/sogo.env
+    fi
+    cp --no-clobber -rav ./testconfig/$i/.  $GLOBAL_DIR_SERV/$i/service
+  done
+  if ! grep -q "127.0.0.1 pfa.local"  /etc/hosts ; then echo "127.0.0.1 pfa.local"  >> /etc/hosts ; fi
+  if ! grep -q "127.0.0.1 sogo.local" /etc/hosts ; then echo "127.0.0.1 sogo.local" >> /etc/hosts ; fi
+fi
+#######################################################################
+if [ "$1" = "setup" ] ; then
+  _down >/dev/null 2>&1
+  ( cd ./syslog  ; d-compose up -d )
+  ( cd ./traefik ; d-compose up -d )
+  ( cd ./imap    ; d-compose up -d )
+  echo ""
+  echo "  wait up to a minute"
+  echo -e "  point your browser to http://$PFA_FRONTEND_URL/setup.php\n  enter a setup password, copy password hash.\n  Paste password hash and type ENTER"
+  echo -n "HASH = "
+  read ans
+  echo "$ans" | docker exec -i postfixadmin setup
+  echo ""
+  echo "  create an admin-user (admin@domain.local) at http://$PFA_FRONTEND_URL/setup.php"
+  echo "  create a mail domain (domain.local)  and a mail user (hugo@domain.local) at http://$PFA_FRONTEND_URL"
+  echo ""
+  echo -n " type ENTER to continue"
+  read ans
+  ( cd ./sogo    ; d-compose up -d )
+  echo ""
+  echo "   wait a minute and restart the stack with ./control up" 
+  echo "   login in to sogo at http://$SOGO_FRONTEND_URL/SOGo"
+  exit 0
+fi
+#######################################################################
+if [ "$1" = "up" ] ; then
+  _down >/dev/null 2>&1
+  for i in $slist ; do
+    ( cd ./$i ; d-compose up -d )
+  done
+  echo ""
+  echo "  login at http://${SOGO_FRONTEND_URL}/SOGo"
+  echo ""
+  exit 0
+fi
+#######################################################################
+# tail -f /Docker/Logs/syslog/imap/mail.log
+# ( cd imap ; d-compose logs [-f]
+# ( cd sogo ; d-compose logs [-f]
+
+

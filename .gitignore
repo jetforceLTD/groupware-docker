@@ -1,0 +1,11 @@
+/sogo
+/imap
+/groupware.env
+/imap/server.pem
+/imap/server.key
+/*/.env
+/*/docker-compose.yml
+/*/service
+/*/persistent
+/*/data
+

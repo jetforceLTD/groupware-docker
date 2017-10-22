@@ -1,0 +1,53 @@
+# traefik.toml
+################################################################
+# Global configuration
+################################################################
+# Enable debug mode
+debug = true
+#debug = false
+
+defaultEntryPoints = ["http"]
+
+#
+# Entrypoints definition
+#
+[entryPoints]
+  [entryPoints.http]
+    address = ":80"
+#    [entryPoints.http.redirect]
+#      entryPoint = "https"
+#  [entryPoints.https]
+#    address = ":443"
+#    [entryPoints.https.tls]
+#      # certs used as default certs
+#      [[entryPoints.https.tls.certificates]]
+#       CertFile = "/certs/xxx.yy.crt"
+#       KeyFile =  "/certs/xxx.yy.key"
+
+#
+# Enable ACME (Let's Encrypt): automatic SSL
+#
+#[acme]
+#email = "hostmaster@xxx.yy"
+#storage = "/etc/traefik/acme.json"
+#entryPoint = "https"
+#onDemand = true
+
+################################################################
+# API backend
+################################################################
+[web]
+address = ":8080"
+ReadOnly = false
+
+################################################################
+# Docker configuration backend
+################################################################
+[docker]
+endpoint = "unix:///var/run/docker.sock"
+domain = "local"
+watch = true
+
+# if set to false, containers that don't have `traefik.enable=true` will be ignored
+exposedbydefault = false
+
