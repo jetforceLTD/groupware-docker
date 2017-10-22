@@ -29,7 +29,11 @@ if [ "$1" = "down" ] ; then _down ; exit 0 ; fi
 #######################################################################
 if [ "$1" = "uninstall" ] ; then
   _down 
-  rm -Rvf $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
+  for i in $slist ; do
+    rm -Rvf $GLOBAL_DIR_SERV/$i
+  done
+  rm -Rvf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
+  rmdir $GLOBAL_DIR_SERV
   sed -i '/127.0.0.1 pfa.local*$/d'  /etc/hosts
   sed -i '/127.0.0.1 sogo.local*$/d' /etc/hosts
   exit 0
