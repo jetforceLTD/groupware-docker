@@ -1,26 +1,11 @@
 #!/bin/bash
 
-d-compose()
-{
-  if [ -x /opt/dc/bin/dc ] ; then
-    /opt/dc/bin/dc compose $*
-  else 
-    docker-compose $*
-  fi
-}
-
-if [ ! -e ./groupware.env ] ; then  cp -v ./groupware.env-template ./groupware.env ; fi
-
-. ./groupware.env
-
+. ./groupware.env-template
 slist="syslog traefik imap sogo"
 
-_down() { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; d-compose down ) ; done }
-
-_help() {
-  echo " usage: `basename $0` install|uninstall|setup|down|up"
-  exit 0
-}
+dcompose() { docker-compose -f ./docker-compose.yml-template $* ; }
+_down()    { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; dcompose down ) ; done }
+_help()    { echo " usage: `basename $0` build|install|down|up|uninstall" ; exit 0 ; }
 
 #######################################################################
 if [ "$1" = "" ] ; then _help ; exit 0 ; fi
@@ -28,14 +13,23 @@ if [ "$1" = "" ] ; then _help ; exit 0 ; fi
 if [ "$1" = "down" ] ; then _down ; exit 0 ; fi
 #######################################################################
 if [ "$1" = "uninstall" ] ; then
-  _down 
+  _down 2>/dev/null
   for i in $slist ; do
-    rm -Rvf $GLOBAL_DIR_SERV/$i
+    echo "remove $GLOBAL_DIR_SERV/$i"
+    rm -Rf $GLOBAL_DIR_SERV/$i
   done
-  rm -Rvf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
-  rmdir $GLOBAL_DIR_SERV
+  echo "remove $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL"
+  rm -Rf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
+  rmdir $GLOBAL_DIR_SERV 2>/dev/null
+  echo "cleanup /etc/hosts"
   sed -i '/127.0.0.1 pfa.local*$/d'  /etc/hosts
   sed -i '/127.0.0.1 sogo.local*$/d' /etc/hosts
+  exit 0
+fi
+#######################################################################
+if [ "$1" = "build" ] ; then
+  ( cd sogo ; dcompose build )
+  ( cd imap ; dcompose build )
   exit 0
 fi
 #######################################################################
@@ -43,64 +37,53 @@ if [ "$1" = "install" ] ; then
   mkdir -p $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
   list="imap sogo"
   for i in $list ; do
-    if [ -d ./$i ] ; then
-      ( cd ./$i ; git pull )
-    else
+    if [ ! -d ./$i ] ; then
       git clone https://github.com/unimock/${i}-docker.git ${i}
     fi
   done
+  for i in $slist ; do cp -v groupware.env-template ./$i/.env ; done
   for i in $slist ; do
-    cp -v groupware.env ./$i/.env
-    if [ ! -e $i/docker-compose.yml ] ; then
-      cp -v $i/docker-compose.yml-template $i/docker-compose.yml
-    fi
     mkdir -p $GLOBAL_DIR_SERV/$i/service
     if [ "$i" = "sogo" ] ; then
-      cp -v groupware.env ./testconfig/sogo/sogo.env
+      cp -v groupware.env-template $GLOBAL_DIR_SERV/$i/service/sogo.env
     fi
-    cp --no-clobber -rav ./testconfig/$i/.  $GLOBAL_DIR_SERV/$i/service
+    if [ -d ./testconfig/$i ] ; then
+      cp -rav ./testconfig/$i/.  $GLOBAL_DIR_SERV/$i/service
+    fi
   done
   if ! grep -q "127.0.0.1 pfa.local"  /etc/hosts ; then echo "127.0.0.1 pfa.local"  >> /etc/hosts ; fi
   if ! grep -q "127.0.0.1 sogo.local" /etc/hosts ; then echo "127.0.0.1 sogo.local" >> /etc/hosts ; fi
-fi
-#######################################################################
-if [ "$1" = "setup" ] ; then
-  _down >/dev/null 2>&1
-  ( cd ./syslog  ; d-compose up -d )
-  ( cd ./traefik ; d-compose up -d )
-  ( cd ./imap    ; d-compose up -d )
+
+  ( cd ./syslog  ; dcompose up -d )
+  ( cd ./traefik ; dcompose up -d )
+  ( cd ./imap    ; dcompose up -d )
+
   echo ""
-  echo "  wait up to a minute"
-  echo -e "  point your browser to http://$PFA_FRONTEND_URL/setup.php\n  enter a setup password, copy password hash.\n  Paste password hash and type ENTER"
-  echo -n "HASH = "
-  read ans
-  echo "$ans" | docker exec -i postfixadmin setup
+  echo -n " the pfadmin database structure will be created "
+  while  ! wget -q -O - http://pfa.local/setup.php | grep "Change setup password" >/dev/null ; do echo -n "." ; sleep 1 ; done
+  PW="xxxx30"
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php admin   add admin@domain.local --password $PW --password2 $PW --superadmin 1 --active 1
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php domain  add       domain.local  --active 1 --default-aliases 0
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php mailbox add  hugo@domain.local --password $PW --password2 $PW --name hugo@domain.local --active 1 --welcome-mail 0
+  # xxxxx30
+  #hash="601d6f6ca3333269247c9c894a3de3f7:880e680ad05db3ce51e360a691498a6343a4c59b"
+  #echo "$hash" | docker exec -i postfixadmin setup
+  ( cd ./sogo    ; dcompose up -d )
   echo ""
-  echo "  create an admin-user (admin@domain.local) at http://$PFA_FRONTEND_URL/setup.php"
-  echo "  create a mail domain (domain.local)  and a mail user (hugo@domain.local) at http://$PFA_FRONTEND_URL"
-  echo ""
-  echo -n " type ENTER to continue"
-  read ans
-  ( cd ./sogo    ; d-compose up -d )
-  echo ""
-  echo "   wait a minute and restart the stack with ./control up" 
-  echo "   login in to sogo at http://$SOGO_FRONTEND_URL/SOGo"
+  echo " # the sogo database structure will be created ..."
+  TI=60;SEC=$TI;for i in `seq $SEC -1 1`;do printf "\r %`expr length $SEC`d/$TI" "$i";sleep 1;done;echo
+  ./control down
+  ./control up
   exit 0
 fi
 #######################################################################
 if [ "$1" = "up" ] ; then
   _down >/dev/null 2>&1
-  for i in $slist ; do
-    ( cd ./$i ; d-compose up -d )
-  done
+  for i in $slist ; do ( cd ./$i ; dcompose up -d ) ; done
   echo ""
   echo "  login at http://${SOGO_FRONTEND_URL}/SOGo"
   echo ""
   exit 0
 fi
 #######################################################################
-# tail -f /Docker/Logs/syslog/imap/mail.log
-# ( cd imap ; d-compose logs [-f]
-# ( cd sogo ; d-compose logs [-f]
-
 
