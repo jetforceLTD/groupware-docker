@@ -4,6 +4,7 @@
 /imap/server.pem
 /imap/server.key
 /*/.env
+/*/.env-template
 /*/docker-compose.yml
 /*/service
 /*/persistent
