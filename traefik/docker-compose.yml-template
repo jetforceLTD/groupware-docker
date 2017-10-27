@@ -9,7 +9,7 @@ services:
       - "80:80"
       #- "443:443"
     volumes:
-      - ${GLOBAL_DIR_SERV}/traefik/service/traefik.toml:/etc/traefik/traefik.toml
+      - ./traefik.toml:/etc/traefik/traefik.toml
       - ${GLOBAL_DIR_SERV}/traefik/service/certs:/certs
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

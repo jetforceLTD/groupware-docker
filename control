@@ -2,6 +2,7 @@
 
 . ./groupware.env-template
 slist="syslog traefik imap sogo"
+list="imap sogo"
 
 dcompose() { docker-compose -f ./docker-compose.yml-template $* ; }
 _down()    { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; dcompose down ) ; done }
@@ -13,7 +14,7 @@ if [ "$1" = "" ] ; then _help ; exit 0 ; fi
 if [ "$1" = "down" ] ; then _down ; exit 0 ; fi
 #######################################################################
 if [ "$1" = "uninstall" ] ; then
-  _down 2>/dev/null
+  _down
   for i in $slist ; do
     echo "remove $GLOBAL_DIR_SERV/$i"
     sudo rm -Rf $GLOBAL_DIR_SERV/$i
@@ -40,32 +41,26 @@ fi
 #######################################################################
 if [ "$1" = "install" ] ; then
   sudo mkdir -p $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
-  list="imap sogo"
   for i in $list ; do
+    sudo mkdir -p $GLOBAL_DIR_SERV/$i/service
     if [ ! -d ./$i ] ; then
       git clone https://github.com/unimock/${i}-docker.git ${i}
     fi
     ( cd $i && ln -sf ../groupware.env-template .env )
     ( cd $i ; dcompose build )
   done
-  for i in $slist ; do ( cd $i && ln -sf ../groupware.env-template .env ) ; done
-  for i in $slist ; do cp ./groupware.env-template $i/.env-template ; done
   for i in $slist ; do
-    sudo mkdir -p $GLOBAL_DIR_SERV/$i/service
+    ( cd $i && ln -sf ../groupware.env-template .env )
+    cp ./groupware.env-template $i/.env-template
     if [ "$i" = "sogo" ] ; then
       sudo cp -v groupware.env-template $GLOBAL_DIR_SERV/$i/service/sogo.env
-    fi
-    if [ -d ./testconfig/$i ] ; then
-      sudo cp -rav ./testconfig/$i/.  $GLOBAL_DIR_SERV/$i/service
     fi
   done
   if ! grep -q "127.0.0.1 pfa.local"  /etc/hosts ; then sudo sh -c "echo '127.0.0.1 pfa.local'  >> /etc/hosts" ; fi
   if ! grep -q "127.0.0.1 sogo.local" /etc/hosts ; then sudo sh -c "echo '127.0.0.1 sogo.local' >> /etc/hosts" ; fi
-
   ( cd ./syslog  && dcompose up -d )
   ( cd ./traefik && dcompose up -d )
   ( cd ./imap    && dcompose up -d )
-
   echo ""
   echo -n " the pfadmin database structure will be created "
   while  ! wget -q -O - http://pfa.local/setup.php | grep "Change setup password" >/dev/null ; do echo -n "." ; sleep 1 ; done
@@ -79,8 +74,8 @@ if [ "$1" = "install" ] ; then
   ( cd ./sogo    ; dcompose up -d )
   echo ""
   echo " # the sogo database structure will be created ..."
-  TI=60;SEC=$TI;for i in `seq $SEC -1 1`;do printf "\r %`expr length $SEC`d/$TI" "$i";sleep 1;done;echo
-  ( cd sogo && dcompose up -d )
+  TI=30;SEC=$TI;for i in `seq $SEC -1 1`;do printf "\r %`expr length $SEC`d/$TI" "$i";sleep 1;done;echo
+  ( cd sogo && dcompose restart )
   exit 0
 fi
 #######################################################################

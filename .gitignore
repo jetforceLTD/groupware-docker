@@ -1,12 +1,9 @@
 /sogo
 /imap
 /groupware.env
-/imap/server.pem
-/imap/server.key
 /*/.env
 /*/.env-template
 /*/docker-compose.yml
 /*/service
 /*/persistent
 /*/data
-/testconfig/sogo/sogo.env
