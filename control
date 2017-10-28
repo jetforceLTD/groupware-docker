@@ -2,7 +2,7 @@
 
 T_DOM="acm.me"
 T_PASS="xxx123"
-T_USER="hugo"
+T_USER="user@acm.me"
 
 
 . ./groupware.env-template
@@ -18,8 +18,8 @@ _info()
   echo ""
   echo "Mail-Log  : tail -f ${GLOBAL_DIR_LOGS}/imap/maillog"
   echo ""
-  echo "PFA-Login : https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}     (User: admin@${T_DOM}  Password: ${T_PASS})"
-  echo "SOGo-Login: https://${SOGO_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/SOGo  (User: ${T_USER}@${T_DOM}  Password: ${T_PASS})"
+  echo "PFA-Login : https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}        (User: admin@${T_DOM}  Password: ${T_PASS})"
+  echo "SOGo-Login: https://${SOGO_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/SOGo  (User: ${T_USER}  Password: ${T_PASS})"
   echo ""
   return
 }
@@ -41,8 +41,8 @@ if [ "$1" = "uninstall" ] ; then
   sudo rm -Rf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
   sudo rmdir $GLOBAL_DIR_SERV 2>/dev/null
   echo "cleanup /etc/hosts"
-  sudo sed -i '/127.0.0.1 "$PFA_FRONTEND_FQDN"*$/d'  /etc/hosts
-  sudo sed -i '/127.0.0.1 "$SOGO_FRONTEND_FQDN"*$/d' /etc/hosts
+  sudo sed -i "/127.0.0.1 ${PFA_FRONTEND_FQDN}*$/d"  /etc/hosts
+  sudo sed -i "/127.0.0.1 ${SOGO_FRONTEND_FQDN}*$/d" /etc/hosts
   if [ -e ./groupware.env ] ; then
     for i in $slist ; do ( cd $i && ln -sf ../groupware.env .env ) ; done
   else
@@ -80,12 +80,10 @@ if [ "$1" = "install" ] ; then
   ( cd ./syslog  && dcompose up -d )
   ( cd ./traefik && dcompose up -d )
   ( cd ./imap    && dcompose up -d )
-  echo ""
-  echo -n " the pfadmin database structure will be created "
-  while  ! curl --insecure https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/setup.php 2>/dev/null | grep "Change setup password" >/dev/null ; do echo -n "." ; sleep 1 ; done
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php admin   add admin@${T_DOM} --password ${T_PASS} --password2 ${T_PASS} --superadmin 1 --active 1
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php domain  add       ${T_DOM}  --active 1 --default-aliases 0
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php mailbox add  hugo@${T_DOM} --password ${T_PASS} --password2 ${T_PASS} --name ${T_USER}@${T_DOM} --active 1 --welcome-mail 0
+  ( cd ./imap    && ./pfadmin wait )    # wait until postfixadmin contianer is initialized
+  ( cd ./imap    && ./pfadmin add domain ${T_DOM} )
+  ( cd ./imap    && ./pfadmin add sadmin admin@${T_DOM} ${T_PASS} )
+  ( cd ./imap    && ./pfadmin add mailbox ${T_USER} ${T_PASS} ${T_USER} )
   ( cd ./sogo    ; dcompose up -d )
   echo ""
   echo " # the sogo database structure will be created ..."
