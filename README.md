@@ -1,8 +1,8 @@
-# exampe and testing configuration for an internal imap server with sogo 
+# Example-/Test-Configuration for an internal imap server with sogo UI 
 
 ## Description
 
-Example-/testing configuration for an internal imap server with sogo UI.
+Example-/Test-Configuration for an internal imap server with sogo UI 
 
 ## Services
 
@@ -32,7 +32,8 @@ cd groupware
 cp groupware.env-template groupware.env
 #vi groupware.env
 ./control install
-./control setup
+./control info
+./control test
 ./control up|down
 ./control uninstall
 ```
