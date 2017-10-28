@@ -9,21 +9,36 @@ T_USER="user@acm.me"
 slist="syslog traefik imap sogo"
 list="imap sogo"
 
-dcompose() { docker-compose -f ./docker-compose.yml-template $* ; }
-_down()    { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; dcompose down ) ; done }
-_help()    { echo " usage: `basename $0` build|install|info|down|up|uninstall" ; exit 0 ; }
-
-_info()
-{
-  echo ""
-  echo "Mail-Log  : tail -f ${GLOBAL_DIR_LOGS}/imap/maillog"
-  echo ""
-  echo "PFA-Login : https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}        (User: admin@${T_DOM}  Password: ${T_PASS})"
-  echo "SOGo-Login: https://${SOGO_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/SOGo  (User: ${T_USER}  Password: ${T_PASS})"
-  echo ""
-  return
+dcomp() { docker-compose -f ./docker-compose.yml-template $* ; }
+_down() { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; dcomp down ) ; done }
+_help() { echo " usage: `basename $0` build|install|info|test|down|up|uninstall" ; exit 0 ; }
+_info() { echo "----------------------------------------------------------------------------------------------"
+          echo "Mail-Log     : sudo tail -f ${GLOBAL_DIR_LOGS}/imap/maillog"
+          echo "Imap-Console : docker exec -it imap bash"
+          echo "SOGo-Console : docker exec -it sogo bash"
+          echo ""
+          echo "PFA-Login    : https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}        (User: admin@${T_DOM}  Password: ${T_PASS})"
+          echo "SOGo-Login   : https://${SOGO_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/SOGo  (User: ${T_USER}  Password: ${T_PASS})"
+          echo "----------------------------------------------------------------------------------------------"
+          return
 }
-
+_test() { ports="$IMAP_PORT_SMTP $IMAP_PORT_SUBM"
+          for i in $ports ; do
+            sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -u "send mail to port $i"
+            sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -xu ${T_USER} -xp ${T_PASS} -u "send mail to port $i with auth"
+          done
+          return
+}
+_hosts_add() { 
+  if ! grep -q "127.0.0.1 $PFA_FRONTEND_FQDN"  /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$PFA_FRONTEND_FQDN"'  >> /etc/hosts" ; fi
+  if ! grep -q "127.0.0.1 $SOGO_FRONTEND_FQDN" /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$SOGO_FRONTEND_FQDN"' >> /etc/hosts" ; fi
+}
+_hosts_remove() {
+  echo "cleanup /etc/hosts"
+  sudo sed -i "/127.0.0.1 ${PFA_FRONTEND_FQDN}*$/d"  /etc/hosts
+  sudo sed -i "/127.0.0.1 ${SOGO_FRONTEND_FQDN}*$/d" /etc/hosts
+}
+  
 #######################################################################
 if [ "$1" = "" ] ; then _help ; exit 0 ; fi
 #######################################################################
@@ -40,9 +55,7 @@ if [ "$1" = "uninstall" ] ; then
   sudo echo "remove $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL"
   sudo rm -Rf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
   sudo rmdir $GLOBAL_DIR_SERV 2>/dev/null
-  echo "cleanup /etc/hosts"
-  sudo sed -i "/127.0.0.1 ${PFA_FRONTEND_FQDN}*$/d"  /etc/hosts
-  sudo sed -i "/127.0.0.1 ${SOGO_FRONTEND_FQDN}*$/d" /etc/hosts
+  _hosts_remove
   if [ -e ./groupware.env ] ; then
     for i in $slist ; do ( cd $i && ln -sf ../groupware.env .env ) ; done
   else
@@ -52,20 +65,19 @@ if [ "$1" = "uninstall" ] ; then
 fi
 #######################################################################
 if [ "$1" = "build" ] ; then
-  ( cd sogo ; dcompose build )
-  ( cd imap ; dcompose build )
+  ( cd sogo ; dcomp build )
+  ( cd imap ; dcomp build )
   exit 0
 fi
 #######################################################################
 if [ "$1" = "install" ] ; then
   sudo mkdir -p $GLOBAL_DIR_LOGS $GLOBAL_DIR_SERV $GLOBAL_DIR_MAIL
-  for i in $list ; do
+  for i in $slist ; do
     sudo mkdir -p $GLOBAL_DIR_SERV/$i/service
     if [ ! -d ./$i ] ; then
       git clone https://github.com/unimock/${i}-docker.git ${i}
+      ( cd $i && ln -sf ../groupware.env-template .env && dcomp build )
     fi
-    ( cd $i && ln -sf ../groupware.env-template .env )
-    ( cd $i ; dcompose build )
   done
   for i in $slist ; do
     ( cd $i && ln -sf ../groupware.env-template .env )
@@ -74,30 +86,31 @@ if [ "$1" = "install" ] ; then
       sudo cp -v groupware.env-template $GLOBAL_DIR_SERV/$i/service/sogo.env
     fi
   done
-  if ! grep -q "127.0.0.1 $PFA_FRONTEND_FQDN"  /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$PFA_FRONTEND_FQDN"'  >> /etc/hosts" ; fi
-  if ! grep -q "127.0.0.1 $SOGO_FRONTEND_FQDN" /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$SOGO_FRONTEND_FQDN"' >> /etc/hosts" ; fi
+  _hosts_add
   ( cd ./traefik && ./generate-ssl  ${GLOBAL_FRONTEND_DOMAIN} )
-  ( cd ./syslog  && dcompose up -d )
-  ( cd ./traefik && dcompose up -d )
-  ( cd ./imap    && dcompose up -d )
-  ( cd ./imap    && ./pfadmin wait )    # wait until postfixadmin contianer is initialized
+  ( cd ./syslog  && dcomp up -d )
+  ( cd ./traefik && dcomp up -d )
+  ( cd ./imap    && dcomp up -d )
+  ( cd ./imap    && ./pfadmin wait )    # wait until postfixadmin container will be initialized
   ( cd ./imap    && ./pfadmin add domain ${T_DOM} )
   ( cd ./imap    && ./pfadmin add sadmin admin@${T_DOM} ${T_PASS} )
   ( cd ./imap    && ./pfadmin add mailbox ${T_USER} ${T_PASS} ${T_USER} )
-  ( cd ./sogo    ; dcompose up -d )
-  echo ""
-  echo " # the sogo database structure will be created ..."
-  TI=30;SEC=$TI;for i in `seq $SEC -1 1`;do printf "\r %`expr length $SEC`d/$TI" "$i";sleep 1;done;echo
-  ( cd sogo && dcompose restart )
+  ( cd ./sogo    && dcomp up -d )
+  ( cd ./sogo    && ./sogoadmin wait )  # wait until sogo container will be initialized
+  _test
   _info
   exit 0
 fi
 #######################################################################
 if [ "$1" = "up" ] ; then
   _down >/dev/null 2>&1
-  for i in $slist ; do ( cd ./$i ; dcompose up -d ) ; done
+  for i in $slist ; do ( cd ./$i ; dcomp up -d ) ; done
   _info
   exit 0
 fi
 #######################################################################
+if [ "$1" = "test" ] ; then
+  _test
+  exit 0
+fi
 
