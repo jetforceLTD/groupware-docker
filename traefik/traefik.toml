@@ -6,7 +6,7 @@
 debug = true
 #debug = false
 
-defaultEntryPoints = ["http"]
+defaultEntryPoints = ["http", "https"]
 
 #
 # Entrypoints definition
@@ -14,15 +14,15 @@ defaultEntryPoints = ["http"]
 [entryPoints]
   [entryPoints.http]
     address = ":80"
-#    [entryPoints.http.redirect]
-#      entryPoint = "https"
-#  [entryPoints.https]
-#    address = ":443"
-#    [entryPoints.https.tls]
-#      # certs used as default certs
-#      [[entryPoints.https.tls.certificates]]
-#       CertFile = "/certs/xxx.yy.crt"
-#       KeyFile =  "/certs/xxx.yy.key"
+    [entryPoints.http.redirect]
+      entryPoint = "https"
+  [entryPoints.https]
+    address = ":443"
+    [entryPoints.https.tls]
+      # certs used as default certs
+      [[entryPoints.https.tls.certificates]]
+       CertFile = "/certs/local.crt"
+       KeyFile =  "/certs/local.key"
 
 #
 # Enable ACME (Let's Encrypt): automatic SSL

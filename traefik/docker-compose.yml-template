@@ -1,16 +1,16 @@
 version: '2'
 services:
   traefik:
-    image: traefik:1.4.0
+    image: traefik:1.4.1
     restart: unless-stopped
     container_name: traefik
     command: --configFile=/etc/traefik/traefik.toml
     ports:
-      - "80:80"
-      #- "443:443"
+      - "8071:80"
+      - "${GLOBAL_FRONTEND_PORT}:443"
     volumes:
       - ./traefik.toml:/etc/traefik/traefik.toml
-      - ${GLOBAL_DIR_SERV}/traefik/service/certs:/certs
+      - ./certs:/certs
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - default

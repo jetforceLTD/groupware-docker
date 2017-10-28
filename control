@@ -1,17 +1,35 @@
 #!/bin/bash
 
+T_DOM="acm.me"
+T_PASS="xxx123"
+T_USER="hugo"
+
+
 . ./groupware.env-template
 slist="syslog traefik imap sogo"
 list="imap sogo"
 
 dcompose() { docker-compose -f ./docker-compose.yml-template $* ; }
 _down()    { for i in `echo "$slist"|tr ' ' '\n'|tac|tr '\n' ' ' | sort -r`; do ( cd $i ; dcompose down ) ; done }
-_help()    { echo " usage: `basename $0` build|install|down|up|uninstall" ; exit 0 ; }
+_help()    { echo " usage: `basename $0` build|install|info|down|up|uninstall" ; exit 0 ; }
+
+_info()
+{
+  echo ""
+  echo "Mail-Log  : tail -f ${GLOBAL_DIR_LOGS}/imap/maillog"
+  echo ""
+  echo "PFA-Login : https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}     (User: admin@${T_DOM}  Password: ${T_PASS})"
+  echo "SOGo-Login: https://${SOGO_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/SOGo  (User: ${T_USER}@${T_DOM}  Password: ${T_PASS})"
+  echo ""
+  return
+}
 
 #######################################################################
 if [ "$1" = "" ] ; then _help ; exit 0 ; fi
 #######################################################################
 if [ "$1" = "down" ] ; then _down ; exit 0 ; fi
+#######################################################################
+if [ "$1" = "info" ] ; then _info ; exit 0 ; fi
 #######################################################################
 if [ "$1" = "uninstall" ] ; then
   _down
@@ -23,8 +41,8 @@ if [ "$1" = "uninstall" ] ; then
   sudo rm -Rf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
   sudo rmdir $GLOBAL_DIR_SERV 2>/dev/null
   echo "cleanup /etc/hosts"
-  sudo sed -i '/127.0.0.1 pfa.local*$/d'  /etc/hosts
-  sudo sed -i '/127.0.0.1 sogo.local*$/d' /etc/hosts
+  sudo sed -i '/127.0.0.1 "$PFA_FRONTEND_FQDN"*$/d'  /etc/hosts
+  sudo sed -i '/127.0.0.1 "$SOGO_FRONTEND_FQDN"*$/d' /etc/hosts
   if [ -e ./groupware.env ] ; then
     for i in $slist ; do ( cd $i && ln -sf ../groupware.env .env ) ; done
   else
@@ -56,35 +74,31 @@ if [ "$1" = "install" ] ; then
       sudo cp -v groupware.env-template $GLOBAL_DIR_SERV/$i/service/sogo.env
     fi
   done
-  if ! grep -q "127.0.0.1 pfa.local"  /etc/hosts ; then sudo sh -c "echo '127.0.0.1 pfa.local'  >> /etc/hosts" ; fi
-  if ! grep -q "127.0.0.1 sogo.local" /etc/hosts ; then sudo sh -c "echo '127.0.0.1 sogo.local' >> /etc/hosts" ; fi
+  if ! grep -q "127.0.0.1 $PFA_FRONTEND_FQDN"  /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$PFA_FRONTEND_FQDN"'  >> /etc/hosts" ; fi
+  if ! grep -q "127.0.0.1 $SOGO_FRONTEND_FQDN" /etc/hosts ; then sudo sh -c "echo '127.0.0.1 "$SOGO_FRONTEND_FQDN"' >> /etc/hosts" ; fi
+  ( cd ./traefik && ./generate-ssl  ${GLOBAL_FRONTEND_DOMAIN} )
   ( cd ./syslog  && dcompose up -d )
   ( cd ./traefik && dcompose up -d )
   ( cd ./imap    && dcompose up -d )
   echo ""
   echo -n " the pfadmin database structure will be created "
-  while  ! wget -q -O - http://pfa.local/setup.php | grep "Change setup password" >/dev/null ; do echo -n "." ; sleep 1 ; done
-  PW="xxxx30"
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php admin   add admin@domain.local --password $PW --password2 $PW --superadmin 1 --active 1
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php domain  add       domain.local  --active 1 --default-aliases 0
-  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php mailbox add  hugo@domain.local --password $PW --password2 $PW --name hugo@domain.local --active 1 --welcome-mail 0
-  # xxxxx30
-  #hash="601d6f6ca3333269247c9c894a3de3f7:880e680ad05db3ce51e360a691498a6343a4c59b"
-  #echo "$hash" | docker exec -i postfixadmin setup
+  while  ! curl --insecure https://${PFA_FRONTEND_FQDN}:${GLOBAL_FRONTEND_PORT}/setup.php 2>/dev/null | grep "Change setup password" >/dev/null ; do echo -n "." ; sleep 1 ; done
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php admin   add admin@${T_DOM} --password ${T_PASS} --password2 ${T_PASS} --superadmin 1 --active 1
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php domain  add       ${T_DOM}  --active 1 --default-aliases 0
+  docker exec -it postfixadmin php -q /postfixadmin/scripts/postfixadmin-cli.php mailbox add  hugo@${T_DOM} --password ${T_PASS} --password2 ${T_PASS} --name ${T_USER}@${T_DOM} --active 1 --welcome-mail 0
   ( cd ./sogo    ; dcompose up -d )
   echo ""
   echo " # the sogo database structure will be created ..."
   TI=30;SEC=$TI;for i in `seq $SEC -1 1`;do printf "\r %`expr length $SEC`d/$TI" "$i";sleep 1;done;echo
   ( cd sogo && dcompose restart )
+  _info
   exit 0
 fi
 #######################################################################
 if [ "$1" = "up" ] ; then
   _down >/dev/null 2>&1
   for i in $slist ; do ( cd ./$i ; dcompose up -d ) ; done
-  echo ""
-  echo "  login at http://${SOGO_FRONTEND_URL}/SOGo"
-  echo ""
+  _info
   exit 0
 fi
 #######################################################################
