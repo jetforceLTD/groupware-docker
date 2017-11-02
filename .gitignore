@@ -2,6 +2,7 @@
 /imap
 /traefik/certs
 /groupware.env
+/*/dc-service.yml
 /*/.env
 /*/.env-template
 /*/docker-compose.yml

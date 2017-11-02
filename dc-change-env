@@ -1,0 +1,7 @@
+#!/bin/bash
+
+( cd sogo ; dc data pull service real )
+cp -v groupware.env  sogo/service/sogo.env
+( cd sogo ; dc data push service real )
+
+
