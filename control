@@ -109,7 +109,13 @@ fi
 #######################################################################
 if [ "$1" = "up" ] ; then
   _down >/dev/null 2>&1
-  for i in $slist ; do ( cd ./$i ; dcomp up -d ) ; done
+  for i in $slist ; do
+    cp ./groupware.env-template $i/.env-template
+    if [ "$i" = "sogo" ] ; then
+      sudo cp -v groupware.env-template $GLOBAL_DIR_SERV/$i/service/sogo.env
+    fi
+    ( cd ./$i ; dcomp up -d )
+  done
   _info
   exit 0
 fi
