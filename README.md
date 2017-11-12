@@ -29,8 +29,7 @@ See "control" script for futher information.
 ```
 git clone https://github.com/unimock/groupware-docker ./groupware
 cd groupware
-cp groupware.env-template groupware.env
-#vi groupware.env
+#vi groupware.env-template
 ./control install
 ./control info
 ./control test

@@ -14,11 +14,10 @@ fi
 
 DOMAIN="$1"
 
+
 if [ -e $SSL_DIR/$DOMAIN.key -a -e $SSL_DIR/$DOMAIN.crt ] ; then
   exit 0
 fi
-
-
 
 # A blank passphrase
 PASSPHRASE=""

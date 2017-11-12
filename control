@@ -22,11 +22,16 @@ _info() { echo "----------------------------------------------------------------
           echo "----------------------------------------------------------------------------------------------"
           return
 }
-_test() { ports="$IMAP_PORT_SMTP $IMAP_PORT_SUBM"
-          for i in $ports ; do
-            sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -u "send mail to port $i"
-            sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -xu ${T_USER} -xp ${T_PASS} -u "send mail to port $i with auth"
-          done
+_test() {
+          if [ "`which sendemail`" = "" ] ; then
+            echo -e "\n\nInstall sendemail for base tests.\n\n"
+          else
+            ports="$IMAP_PORT_SMTP $IMAP_PORT_SUBM"
+            for i in $ports ; do
+              sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -u "send mail to port $i"
+              sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -xu ${T_USER} -xp ${T_PASS} -u "send mail to port $i with auth"
+            done
+          fi
           return
 }
 _hosts_add() { 
