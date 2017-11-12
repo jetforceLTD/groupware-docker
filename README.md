@@ -8,11 +8,7 @@ Example-/Test-Configuration for an internal imap server with sogo UI
 
 ### traefik
 
-* traefik/service/traefik.toml # Domain
-
 ### syslog
-
-* syslog/service/rsyslog.conf
 
 ### imap
 
@@ -20,7 +16,7 @@ see https://github.com/unimock/imap-docker
 
 ### sogo
 
-see https://github.com/unimock/imap-docker
+see https://github.com/unimock/sogo-docker
 
 ## Installation and Setup
 
@@ -42,7 +38,7 @@ cd groupware
 * see https://github.com/unimock/imap-docker
 * see https://github.com/unimock/sogo-docker
 
-## Tests
+## further tests:
 ```
 SERVER=127.0.0.1
 MUSER=hugo@domain.local

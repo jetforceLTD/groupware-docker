@@ -24,7 +24,7 @@ _info() { echo "----------------------------------------------------------------
 }
 _test() {
           if [ "`which sendemail`" = "" ] ; then
-            echo -e "\n\nInstall sendemail for base tests.\n\n"
+            echo -e "\n\nInstall sendemail for basic tests.\n\n"
           else
             ports="$IMAP_PORT_SMTP $IMAP_PORT_SUBM"
             for i in $ports ; do
