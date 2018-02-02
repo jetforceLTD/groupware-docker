@@ -1,9 +1,9 @@
 version: '2'
 services:
-  traefik:
-    image: traefik:1.4.1
+  traefik_groupware:
+    image: traefik:1.5.1
     restart: unless-stopped
-    container_name: traefik
+    container_name: traefik_groupware
     command: --configFile=/etc/traefik/traefik.toml
     ports:
       - "8071:80"
@@ -13,7 +13,7 @@ services:
       - ./certs:/certs
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - default
+      - groupware
 networks:
-  default:
+  groupware:
 
