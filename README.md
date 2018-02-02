@@ -22,6 +22,7 @@ see https://github.com/unimock/sogo-docker
 
 See "control" script for futher information.
 
+### establish and run a test environment
 ```
 git clone https://github.com/unimock/groupware-docker ./groupware
 cd groupware
@@ -31,6 +32,24 @@ cd groupware
 ./control test
 ./control up|down
 ./control uninstall
+```
+### prepare and start runtime environment 
+```
+  # set global data
+  cp groupware.env-template groupware.env
+  vi groupware.env
+  #
+  cd imap
+  cp docker-compose.yml-template docker-compose.yml
+  vi docker-compose.yml
+  docker-compose up -d
+  docker-compose logs -f
+  # 
+  cd sogo
+  cp docker-compose.yml-template docker-compose.yml
+  vi docker-compose.yml
+  docker-compose up -d
+  docker-compose logs -f
 ```
 
 ## Configuration

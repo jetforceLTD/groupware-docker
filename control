@@ -61,11 +61,11 @@ if [ "$1" = "uninstall" ] ; then
   sudo rm -Rf $GLOBAL_DIR_LOGS $GLOBAL_DIR_MAIL
   sudo rmdir $GLOBAL_DIR_SERV 2>/dev/null
   _hosts_remove
-  if [ -e ./groupware.env ] ; then
+  #if [ -e ./groupware.env ] ; then
     for i in $slist ; do ( cd $i && ln -sf ../groupware.env .env ) ; done
-  else
-    for i in $slist ; do rm -f $i/.env ; done 
-  fi
+  #else
+  #  for i in $slist ; do rm -f $i/.env ; done 
+  #fi
   exit 0
 fi
 #######################################################################
