@@ -32,6 +32,12 @@ _test() {
               sendemail -m "`date`" -f test@test.de  -s localhost:$i -t ${T_USER} -xu ${T_USER} -xp ${T_PASS} -u "send mail to port $i with auth"
             done
           fi
+	  sleep 1
+	  cnt=$( ls -1 ${GLOBAL_DIR_MAIL}/vmail/${T_DOM}/user/Maildir/new | wc -l )
+	  echo "found ${cnt} mails in <${GLOBAL_DIR_MAIL}/vmail/${T_DOM}/user/Maildir/new>"
+	  if [ "$cnt" -lt "4" ] ; then
+             echo "!!! error expected 4 mails in Maildir !!!!"
+	  fi
           return
 }
 _hosts_add() { 
