@@ -1,13 +1,13 @@
 version: '2'
 services:
   syslog:
-    image: jarokelo/docker-rsyslog
+    image: unimock/rsyslog-docker:0.0.1 
     restart: unless-stopped
     container_name: syslog
     hostname: syslog
     volumes:
-      - ${GLOBAL_DIR_LOGS}:/var/log
-      - ./rsyslog.conf:/etc/rsyslog.conf
+      - ${GLOBAL_DIR_LOGS}:/var/log/remote
+      - ${GLOBAL_DIR_SERV}/syslog/service:/service
     #pids_limit: 20
     #cpu_shares: 1023
     mem_limit: 100m
